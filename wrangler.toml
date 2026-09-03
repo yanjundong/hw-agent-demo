@@ -1,0 +1,18 @@
+# Cloudflare Pages 项目配置（web 前端同源代理到 AgentArts Gateway）
+#
+# 部署：
+#   npx wrangler login
+#   npx wrangler pages deploy
+#
+# 说明：
+# - static/ 是纯静态产物目录（index.html 单页）
+# - functions/invocations.js 是 Pages Function，浏览器零跨域
+# - [vars] 的值会被注入 Functions Runtime（context.env），浏览器不可见
+name = "hw-agent-demo"
+pages_build_output_dir = "./static"
+compatibility_date = "2026-08-01"
+
+[vars]
+# AgentArts Runtime 部署完成后，控制台“访问域名/调用地址”即此前缀；
+# 这里保持与 .agentarts_config.yaml 部署出的 defaultgw 一致。
+AGENTARTS_INVOCATIONS_URL = "https://defaultgw-gm4tomjrgu.cn-southwest-2.huaweicloud-agentarts.com/runtimes/hw-agent-demo/invocations"

@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HW AgentArts Demo</title>
+  <style>
+    :root {
+      --bg-0: #060a12;
+      --bg-1: #0b1120;
+      --bg-2: #111a2e;
+      --panel: rgba(255, 255, 255, .045);
+      --panel-strong: rgba(255, 255, 255, .07);
+      --border: rgba(255, 255, 255, .10);
+      --border-bright: rgba(34, 211, 238, .45);
+      --text: #e6edf3;
+      --muted: #8b98a9;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --grad: linear-gradient(135deg, #22d3ee, #a78bfa);
+      --danger: #fb7185;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(1000px 600px at 85% -10%, rgba(34, 211, 238, .12) 0%, transparent 55%),
+        radial-gradient(900px 500px at -10% 30%, rgba(167, 139, 250, .12) 0%, transparent 55%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1) 55%, var(--bg-2));
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      letter-spacing: .1px;
+    }
+    button {
+      font-family: inherit;
+      border: none;
+      cursor: pointer;
+      background: none;
+      color: inherit;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .grad-text {
+      background: var(--grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    /* ── 顶部导航（毛玻璃） ── */
+    .topnav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 60px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      background: rgba(6, 10, 18, .6);
+      border-bottom: 1px solid var(--border);
+    }
+    .topnav .brand { font-weight: 700; font-size: 16px; letter-spacing: .3px; }
+    .nav-login {
+      padding: 8px 18px;
+      border-radius: 8px;
+      background: var(--grad);
+      color: #06121a;
+      font-weight: 600;
+      font-size: 13px;
+      transition: filter .15s, transform .1s;
+    }
+    .nav-login:hover { filter: brightness(1.15); }
+    .nav-login:active { transform: translateY(1px); }
+
+    /* ── Landing Hero ── */
+    .hero {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 96px 28px 72px;
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .hero h1 {
+      font-size: 58px;
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -1px;
+    }
+    .hero .tagline {
+      margin-top: 20px;
+      font-size: 19px;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 520px;
+    }
+    .hero .badge-row {
+      margin-top: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .hero .badge {
+      font-size: 12px;
+      color: var(--cyan);
+      border: 1px solid rgba(34, 211, 238, .35);
+      background: rgba(34, 211, 238, .08);
+      padding: 5px 12px;
+      border-radius: 999px;
+    }
+    .hero .cta-row { margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .btn-grad {
+      padding: 13px 28px;
+      border-radius: 10px;
+      background: var(--grad);
+      color: #06121a;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 8px 30px rgba(34, 211, 238, .25);
+      transition: filter .15s, transform .1s;
+    }
+    .btn-grad:hover { filter: brightness(1.12); }
+    .btn-grad:active { transform: translateY(1px); }
+    .btn-ghost {
+      padding: 13px 28px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 15px;
+      background: var(--panel);
+      transition: border-color .15s, background .15s;
+    }
+    .btn-ghost:hover { border-color: var(--border-bright); background: var(--panel-strong); }
+
+    /* Hero 终端装饰 */
+    .hero-console {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(10, 16, 28, .8);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 60px rgba(34, 211, 238, .08);
+      overflow: hidden;
+      font-family: "JetBrains Mono", Consolas, monospace;
+    }
+    .console-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, .04);
+      border-bottom: 1px solid var(--border);
+    }
+    .console-bar .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .console-bar .dot.r { background: #f87171; }
+    .console-bar .dot.y { background: #fbbf24; }
+    .console-bar .dot.g { background: #34d399; }
+    .console-bar .title { margin-left: 8px; font-size: 12px; color: var(--muted); }
+    .console-body { padding: 18px 20px; font-size: 13px; line-height: 1.9; color: #9fb0c3; }
+    .console-body .prompt { color: var(--cyan); }
+    .console-body .ok { color: #34d399; }
+    .console-body .dim { color: #5b6b7d; }
+
+    /* ── 能力卡片 ── */
+    .caps {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 28px 88px;
+    }
+    .caps h2 {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -.4px;
+      margin-bottom: 28px;
+    }
+    .cap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .cap-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      padding: 26px;
+      transition: border-color .2s, transform .2s, box-shadow .2s, background .2s;
+    }
+    .cap-card:hover {
+      border-color: var(--border-bright);
+      transform: translateY(-4px);
+      background: var(--panel-strong);
+      box-shadow: 0 18px 40px rgba(34, 211, 238, .12);
+    }
+    .cap-card .cap-icon {
+      font-size: 30px;
+      filter: drop-shadow(0 0 14px rgba(34, 211, 238, .4));
+    }
+    .cap-card h3 { font-size: 17px; font-weight: 700; margin-top: 14px; }
+    .cap-card .cap-example {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .cap-card .cap-example b { color: var(--cyan); font-weight: 600; }
+
+    .landing-footer {
+      text-align: center;
+      padding: 20px 20px 44px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── 登录页 ── */
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-box {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(20px);
+      padding: 40px 36px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+      position: relative;
+    }
+    .login-back {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .login-back:hover { color: var(--cyan); }
+    .login-box h2 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .login-sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      margin: 8px 0 30px;
+    }
+    .login-card {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .03);
+      text-align: left;
+      transition: border-color .2s, background .2s;
+    }
+    .login-card:hover { border-color: var(--border-bright); background: rgba(34, 211, 238, .07); }
+    .login-card .lc-text { flex: 1; }
+    .login-card .lc-text span { font-size: 16px; font-weight: 700; }
+    .login-card .lc-text p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+    .login-card .lc-badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--grad);
+      color: #06121a;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .login-note {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ── 聊天页：左侧边栏 + 主区域 ── */
+    .chat-page {
+      height: 100vh;
+      min-height: 0;
+      display: flex;
+      padding: 20px;
+      gap: 16px;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 250px;
+      min-height: 0;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(9, 14, 25, .75);
+      backdrop-filter: blur(18px);
+      padding: 18px 14px;
+    }
+    .sidebar .sb-brand { font-size: 15px; font-weight: 800; padding: 2px 8px 16px; flex-shrink: 0; }
+    .sidebar .sb-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 8px;
+      flex-shrink: 0;
+    }
+    .sb-tools {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sb-tool {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      font-size: 13.5px;
+      text-align: left;
+      transition: background .15s, border-color .15s;
+    }
+    .sb-tool:hover { background: var(--panel); border-color: var(--border); }
+    .sb-tool .t-icon { font-size: 16px; }
+    .sb-tool .t-name { font-weight: 600; }
+    .sb-tool .t-hint { color: var(--muted); font-size: 12px; margin-left: auto; opacity: 0; transition: opacity .15s; }
+    .sb-tool:hover .t-hint { opacity: 1; }
+    .sidebar .sb-bottom { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .sb-user { display: flex; align-items: center; gap: 10px; padding: 8px; }
+    .sb-user .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: var(--grad);
+      color: #06121a;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .sb-user .sb-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sb-actions { display: flex; gap: 6px; padding: 8px; }
+    .sb-actions button {
+      flex: 1;
+      padding: 8px 0;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      transition: color .15s, border-color .15s;
+    }
+    .sb-actions button:hover { color: var(--text); border-color: var(--border-bright); }
+
+    .chat-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(9, 14, 25, .6);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+    .chat-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .chat-top .chat-title { font-size: 14px; font-weight: 700; }
+    .chat-top .chat-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+    .chat-top .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 10px rgba(52, 211, 153, .8);
+    }
+
+    #chat {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .msg { display: flex; gap: 10px; max-width: 100%; }
+    .msg.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+    }
+    .msg.user .avatar { background: rgba(34, 211, 238, .15); border-color: rgba(34, 211, 238, .35); }
+    .bubble {
+      max-width: 76%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 14.5px;
+      line-height: 1.65;
+      color: var(--text);
+      word-break: break-word;
+      white-space: pre-wrap;
+      border: 1px solid var(--border);
+    }
+    .msg.assistant .bubble { background: rgba(255, 255, 255, .055); }
+    .msg.user .bubble {
+      background: linear-gradient(135deg, rgba(34, 211, 238, .22), rgba(167, 139, 250, .22));
+      border-color: rgba(34, 211, 238, .3);
+    }
+    .bubble p { margin: 6px 0; }
+    .bubble p:first-child { margin-top: 0; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble strong { font-weight: 700; }
+    .bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 13px; }
+    .bubble th, .bubble td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+    .bubble th { background: rgba(255, 255, 255, .08); }
+    .bubble code {
+      background: rgba(255, 255, 255, .1);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: Consolas, monospace;
+    }
+    .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+    .typing {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 2px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .typing::before {
+      content: '';
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--cyan);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 授权卡片（玻璃拟态） */
+    .auth-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid rgba(34, 211, 238, .4);
+      background: rgba(34, 211, 238, .07);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 12px 0 4px;
+      max-width: 76%;
+    }
+    .auth-card .ac-text {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+    .auth-card .ac-btn {
+      flex-shrink: 0;
+      background: var(--grad);
+      color: #06121a;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .auth-card .ac-btn:hover { filter: brightness(1.12); text-decoration: none; }
+
+    /* 输入区 */
+    .chat-input {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14.5px;
+      font-family: inherit;
+      resize: none;
+      min-height: 46px;
+      max-height: 140px;
+      outline: none;
+      background: rgba(255, 255, 255, .05);
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #input::placeholder { color: var(--muted); }
+    #input:focus { border-color: var(--border-bright); box-shadow: 0 0 0 3px rgba(34, 211, 238, .12); }
+    #send {
+      background: var(--grad);
+      color: #06121a;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 14.5px;
+      font-weight: 700;
+      transition: filter .15s;
+      flex-shrink: 0;
+    }
+    #send:hover { filter: brightness(1.12); }
+    #send:disabled, #input:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── 未登录拦截层 ── */
+    .auth-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(6, 10, 18, .78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .gate-box {
+      width: min(400px, 100%);
+      text-align: center;
+      padding: 34px 30px 28px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(17, 26, 46, .9);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+    }
+    .gate-brand { font-size: 17px; font-weight: 800; margin-bottom: 20px; }
+    .gate-box h2 { font-size: 20px; margin-bottom: 8px; }
+    .gate-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.7; }
+    .gate-btn { width: 100%; padding: 12px 16px; font-size: 14px; }
+    .gate-note {
+      min-height: 18px;
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--danger);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; padding-top: 60px; }
+      .hero-console { display: none; }
+      .chat-page { padding: 10px; }
+      .sidebar { display: none; }
+      .bubble, .auth-card { max-width: 88%; }
+      .auth-card { flex-direction: column; align-items: stretch; }
+      .auth-card .ac-btn { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ── 聊天：左侧边栏 + 主区域 ── -->
+  <div id="chatView" class="chat-page">
+    <aside class="sidebar">
+      <div class="sb-brand">HW <span class="grad-text">AgentArts</span> Demo</div>
+      <div class="sb-label">可用工具</div>
+      <div class="sb-tools" id="sbTools"></div>
+      <div class="sb-bottom">
+        <div class="sb-user">
+          <div class="avatar" id="userAvatar">U</div>
+          <span class="sb-name" id="userName"></span>
+        </div>
+        <div class="sb-actions">
+          <button id="clearSessionBtn">清除会话</button>
+          <button id="logoutBtn">退出</button>
+        </div>
+      </div>
+    </aside>
+    <div class="chat-main">
+      <div class="chat-top">
+        <span class="chat-title">智能助手</span>
+        <span class="chat-status"><span class="status-dot"></span>已连接 AgentArts Runtime</span>
+      </div>
+      <main id="chat"></main>
+      <footer class="chat-input">
+        <textarea id="input" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+        <button id="send">发送</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ── 未登录拦截层：登录后才能聊天 ── -->
+  <div id="authGate" class="auth-gate">
+    <div class="gate-box">
+      <div class="gate-brand">HW <span class="grad-text">AgentArts</span> Demo</div>
+      <h2>登录后开始对话</h2>
+      <p class="gate-sub">请使用 Microsoft 账号完成 Entra ID 登录</p>
+      <button class="btn-grad gate-btn" id="gateLoginBtn">Microsoft 账号登录</button>
+      <p class="gate-note" id="gateNote"></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- MSAL v3+ 不再托管在微软官方 CDN；这里走 jsdelivr 的 npm 包 UMD 产物。
+       如需更新版本，替换 @3.3.0 即可（lib/msal-browser.min.js 为 UMD 入口）。 -->
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.3.0/lib/msal-browser.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const STORAGE_KEY = 'hw_agentarts_demo_session';
+    const TOKEN_KEY = 'hw_agentarts_token';
+    const USER_KEY = 'hw_agentarts_user_name';
+
+    // ── 部署形态 ──
+    // localhost：python main.py 同源托管（后端自建 OAuth2 + 会话 JWT）
+    // 其他域名（Cloudflare Pages）：MSAL 取 Entra id_token，由 AgentArts
+    // Gateway 的 CUSTOM_JWT authorizer 校验后注入用户身份（生产形态）。
+    const IS_LOCALHOST = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+    // Microsoft Entra ID 应用注册（浏览器公开值，非机密）。
+    // 如更换应用/租户，需同步修改 .agentarts_config.yaml 中
+    // custom_jwt 的 discovery_url / allowed_audience / allowed_clients。
+    const ENTRA = {
+      clientId: '4f25cc58-e6c1-427a-9fea-e4213c025a03',
+      // 个人 Microsoft 账号（演示用 gmail 登录）必须用 consumers，
+      // 与网关 CUSTOM_JWT discovery_url 的租户一致；组织账号改成
+      // Directory (tenant) ID 时需同步修改 .agentarts_config.yaml。
+      tenant: 'consumers',
+      scopes: ['openid', 'profile', 'email'],
+    };
+    const AUTHORITY = 'https://login.microsoftonline.com/' + ENTRA.tenant + '/v2.0';
+
+    let msalInstance = null;
+    if (!IS_LOCALHOST && ENTRA.clientId && window.msal) {
+      msalInstance = new window.msal.PublicClientApplication({
+        auth: {
+          clientId: ENTRA.clientId,
+          authority: AUTHORITY,
+          redirectUri: window.location.origin,
+        },
+        cache: { cacheLocation: 'localStorage' },
+      });
+    }
+    // MSAL v3+ 必须 await initialize() 后才能调用任何 API
+    const msalReady = msalInstance
+      ? msalInstance.initialize().catch((e) => {
+          console.warn('MSAL initialize failed', e);
+        })
+      : Promise.resolve();
+
+    function accountName(account) {
+      return (account && (account.name || account.username || '')) || '';
+    }
+    function saveAuth(tokenValue, nameValue) {
+      token = tokenValue;
+      userName = nameValue || '';
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, userName);
+    }
+    function clearAuth() {
+      token = '';
+      userName = '';
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
+    async function acquireIdTokenSilently() {
+      if (!msalInstance) return null;
+      await msalReady;
+      const account = msalInstance.getActiveAccount() ||
+        (msalInstance.getAllAccounts() || [])[0];
+      if (!account) return null;
+      try {
+        const resp = await msalInstance.acquireTokenSilent({
+          scopes: ENTRA.scopes,
+          account: account,
+        });
+        return (resp && resp.idToken) ? resp.idToken : null;
+      } catch (e) {
+        console.warn('MSAL silent token acquisition failed', e);
+        return null;
+      }
+    }
+
+    // Demo 可用工具与推荐提示词（与后端 build_tools() 一一对应）
+    const TOOLS = [
+      { icon: '🐙', name: 'GitHub 仓库', tool: 'github_list_repositories', prompt: '列出我的 GitHub 仓库' },
+      { icon: '☁️', name: '华为云 IAM', tool: 'huaweicloud_list_iam_users', prompt: '列出华为云的所有 IAM 用户' },
+      { icon: '📧', name: '发送邮件', tool: 'send_email', prompt: '给 your@email.com 发一封主题为「测试邮件」的邮件，正文写「你好」' },
+      { icon: '🚀', name: '飞书应用信息', tool: 'feishu_get_app_info', prompt: '查询当前飞书应用的应用信息' },
+    ];
+
+    let sessionId = localStorage.getItem(STORAGE_KEY) || crypto.randomUUID();
+    let token = localStorage.getItem(TOKEN_KEY) || '';
+    let userName = localStorage.getItem(USER_KEY) || '';
+
+    // ── 未登录拦截：聊天页常驻，认证通过前输入与发送不可用 ──
+    function setGateMessage(text) {
+      const note = $('gateNote');
+      if (note) note.textContent = text || '';
+    }
+    function showAuthGate(on) {
+      $('authGate').style.display = on ? 'flex' : 'none';
+      $('input').disabled = on;
+      $('send').disabled = on;
+      $('input').placeholder = on ? '请先登录后再发送消息' : '输入消息，Enter 发送，Shift+Enter 换行';
+      if (on) setGateMessage('');
+    }
+
+    function initChatView() {
+      $('userName').textContent = userName || 'user';
+      $('userAvatar').textContent = (userName || 'u').slice(0, 1).toUpperCase();
+    }
+
+    function applyAuthState() {
+      if (token) {
+        initChatView();
+        showAuthGate(false);
+      } else {
+        showAuthGate(true);
+      }
+    }
+
+    // ── 侧边栏工具列表 ──
+    const chat = $('chat');
+    const input = $('input');
+    function renderTools() {
+      const box = $('sbTools');
+      box.innerHTML = '';
+      TOOLS.forEach((t) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sb-tool';
+        btn.title = '点击填入输入框：' + t.prompt;
+        btn.innerHTML =
+          '<span class="t-icon">' + t.icon + '</span>' +
+          '<span class="t-name">' + t.name + '</span>' +
+          '<span class="t-hint">↳</span>';
+        btn.addEventListener('click', () => {
+          input.value = t.prompt;
+          input.style.height = 'auto';
+          input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+          input.focus();
+        });
+        box.appendChild(btn);
+      });
+    }
+    renderTools();
+
+    // ── 处理 OAuth2 回调携带的 token ──
+    const params = new URLSearchParams(window.location.search);
+    const cbToken = params.get('token');
+    const cbName = params.get('name');
+    const cbError = params.get('auth_error');
+    if (cbToken) {
+      token = cbToken;
+      userName = cbName || 'user';
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, userName);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (cbError) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // ── 渲染 ──
+    const render = (text) => {
+      if (window.marked) return marked.parse(text);
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    };
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = role === 'user' ? '🧑' : '🤖';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = role === 'user'
+        ? text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        : render(text);
+      bubble.querySelectorAll('a').forEach((a) => {
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+      });
+      div.appendChild(avatar);
+      div.appendChild(bubble);
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return bubble;
+    }
+
+    // 授权卡片（玻璃拟态）
+    function addAuthCard(authUrl, message) {
+      const card = document.createElement('div');
+      card.className = 'auth-card';
+      const text = document.createElement('div');
+      text.className = 'ac-text';
+      text.innerHTML = '<span>🔐</span><span>' + (message || '') + '</span>';
+      const btn = document.createElement('a');
+      btn.className = 'ac-btn';
+      btn.href = authUrl;
+      btn.target = '_blank';
+      btn.rel = 'noopener noreferrer';
+      btn.textContent = '点击授权';
+      card.appendChild(text);
+      card.appendChild(btn);
+      chat.appendChild(card);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    let typingEl = null;
+    function setTyping(on) {
+      if (on && !typingEl) {
+        typingEl = document.createElement('div');
+        typingEl.className = 'typing';
+        typingEl.textContent = 'Agent 思考中…';
+        chat.appendChild(typingEl);
+        chat.scrollTop = chat.scrollHeight;
+      } else if (!on && typingEl) {
+        typingEl.remove();
+        typingEl = null;
+      }
+    }
+
+    async function invokeChat(text, onAuthRequired, retried) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+        'x-hw-agentarts-session-id': sessionId,
+      };
+      if (token) headers.Authorization = 'Bearer ' + token;
+
+      const resp = await fetch('/invocations', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ message: text, session_id: sessionId, stream: true }),
+      });
+
+      if (resp.status === 401 && !retried && !IS_LOCALHOST && msalInstance) {
+        const fresh = await acquireIdTokenSilently();
+        if (fresh) {
+          saveAuth(fresh, userName);
+          return invokeChat(text, onAuthRequired, true);
+        }
+      }
+      if (resp.status === 401) {
+        clearAuth();
+        applyAuthState();
+        setGateMessage('会话已过期，请重新登录');
+        throw new Error('登录已过期，请重新登录');
+      }
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || ('HTTP ' + resp.status));
+      }
+      if (!resp.body) throw new Error('服务无响应');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let completed = false;
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        let sep;
+        while ((sep = buf.indexOf('\n\n')) !== -1) {
+          const frame = buf.slice(0, sep);
+          buf = buf.slice(sep + 2);
+          for (const line of frame.split('\n')) {
+            if (!line.startsWith('data:')) continue;
+            const raw = line.slice(5).trim();
+            if (!raw) continue;
+            let ev;
+            try { ev = JSON.parse(raw); } catch (e) { continue; }
+            if (ev.type === 'auth_required' && ev.auth_url) {
+              if (onAuthRequired) {
+                onAuthRequired(ev.provider || 'OAuth2', ev.auth_url);
+              }
+            } else if (ev.type === 'result') {
+              if (ev.session_id && ev.session_id !== sessionId) {
+                sessionId = ev.session_id;
+                localStorage.setItem(STORAGE_KEY, sessionId);
+              }
+              if (ev.status === 'error') throw new Error(ev.response || '执行出错');
+              addMessage('assistant', ev.response);
+              completed = true;
+            } else if (ev.type === 'error') {
+              throw new Error(ev.message || '执行出错');
+            }
+          }
+        }
+      }
+      if (!completed) throw new Error('连接中断，未收到完整响应');
+    }
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      addMessage('user', text);
+      input.value = '';
+      input.style.height = 'auto';
+      setTyping(true);
+      $('send').disabled = true;
+
+      // Cloudflare Pages 模式：确保已持有未过期的 id_token 后再发起调用
+      if (!IS_LOCALHOST && msalInstance && !token) {
+        const fresh = await acquireIdTokenSilently();
+        const account = msalInstance.getActiveAccount() ||
+          (msalInstance.getAllAccounts() || [])[0];
+        if (fresh) saveAuth(fresh, accountName(account));
+      }
+
+      try {
+        await invokeChat(text, (provider, authUrl) => {
+          addAuthCard(authUrl, provider + ' 需要完成 OAuth2 授权，请在新窗口完成授权后回到本页等待。');
+        });
+      } catch (e) {
+        addMessage('assistant', '⚠️ ' + (e.message || '请求失败'));
+      } finally {
+        setTyping(false);
+        $('send').disabled = false;
+        input.focus();
+      }
+    }
+
+    // ── 事件绑定 ──
+    $('send').addEventListener('click', send);
+    $('gateLoginBtn').addEventListener('click', async () => {
+      if (!IS_LOCALHOST && msalInstance) {
+        try {
+          await msalReady;
+          await msalInstance.loginRedirect({ scopes: ENTRA.scopes });
+        } catch (e) {
+          console.error('MSAL login failed', e);
+        }
+      } else if (msalInstance === null && !IS_LOCALHOST) {
+        alert('⚠️ MSAL 登录库未加载（可能是 CDN 被拦截），请检查网络后刷新重试。');
+      } else {
+        window.location.href = '/auth/login';
+      }
+    });
+    $('clearSessionBtn').addEventListener('click', () => {
+      sessionId = crypto.randomUUID();
+      localStorage.setItem(STORAGE_KEY, sessionId);
+      chat.innerHTML = '';
+      addMessage('assistant', '已清除历史会话。你可以直接输入问题，或点左侧工具快速体验。');
+    });
+    $('logoutBtn').addEventListener('click', async () => {
+      chat.innerHTML = '';
+      clearAuth();
+      if (!IS_LOCALHOST && msalInstance) {
+        try {
+          await msalReady;
+          msalInstance.setActiveAccount(null);
+          await msalInstance.logoutRedirect({
+            postLogoutRedirectUri: window.location.origin,
+          });
+          return;
+        } catch (e) {
+          console.warn('MSAL logout failed', e);
+        }
+      }
+      applyAuthState();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+    });
+
+    // ── 初始化 ──
+    (async function init() {
+      // Cloudflare Pages：处理 MSAL 登录跳转回跳，恢复/静默续期 id_token
+      if (!IS_LOCALHOST && msalInstance) {
+        await msalReady;
+        try {
+          const redirectResp = await msalInstance.handleRedirectPromise();
+          if (redirectResp && redirectResp.idToken) {
+            saveAuth(redirectResp.idToken, accountName(redirectResp.account));
+          }
+        } catch (e) {
+          console.warn('MSAL redirect handling failed', e);
+        }
+        const accounts = msalInstance.getAllAccounts() || [];
+        if (accounts.length) {
+          msalInstance.setActiveAccount(accounts[0]);
+          if (!token) {
+            const fresh = await acquireIdTokenSilently();
+            if (fresh) saveAuth(fresh, accountName(accounts[0]));
+          } else if (!userName) {
+            userName = accountName(accounts[0]);
+            localStorage.setItem(USER_KEY, userName);
+          }
+        }
+      }
+
+      if (token) {
+        initChatView();
+        showAuthGate(false);
+        addMessage('assistant',
+          '你好 **' + userName + '**！我是 HW AgentArts Demo 智能助手，已通过 Entra ID 认证。' +
+          '左侧列出了 4 个可用工具，点击即可填入提示词。');
+      } else {
+        showAuthGate(true);
+        if (cbError) setGateMessage('OAuth2 登录失败：' + cbError);
+      }
+    })();
+  </script>
+</body>
+</html>

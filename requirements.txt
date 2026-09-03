@@ -1,0 +1,10 @@
+agentarts-sdk==0.1.5
+langgraph==1.2.11
+langgraph-checkpoint==4.2.0
+langgraph-prebuilt==1.1.0
+langchain-core==1.6.0
+langchain-openai==1.6.0
+httpx==0.28.1
+huaweicloudsdkiam==3.1.211
+uvicorn==0.52.4
+python-dotenv==1.2.3

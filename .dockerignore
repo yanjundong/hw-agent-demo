@@ -1,0 +1,21 @@
+# 本地环境与敏感配置不进镜像
+venv/
+.venv/
+.env
+.agentarts_config.yaml
+.git/
+.gitignore
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 编辑器/系统文件
+.idea/
+.vscode/
+.DS_Store
+
+# 文档与临时文件
+*.md
+tmp/

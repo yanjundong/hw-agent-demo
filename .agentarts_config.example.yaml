@@ -1,0 +1,89 @@
+# ============================================================
+# agentarts CLI 部署配置模板（含真实密钥，禁止直接提交）
+# 使用方式：cp .agentarts_config.example.yaml .agentarts_config.yaml
+# 然后在 ARM64 Linux 环境执行 `agentarts deploy`。
+#
+# 注意：
+# - CLI 不做 ${VAR} 占位符展开，value 必须写真实值；
+# - .agentarts_config.yaml 已被 .gitignore 排除；
+# - 本文件是仓库内模板，只放默认值与占位符。
+# ============================================================
+default_agent: hw-agent-demo
+agents:
+  hw-agent-demo:
+    base:
+      name: hw-agent-demo
+      entrypoint: app.webapp:app
+      dependency_file: requirements.txt
+      region: cn-southwest-2
+      platform: linux/arm64
+      language: python3
+      base_image: python:3.12-slim
+      container_runtime: docker
+    swr_config:
+      organization_auto_create: true
+      organization: hw-agent-demo-org
+      repository_auto_create: true
+      repository: hw_agent_demo
+    runtime:
+      arch: arm64
+      agent_gateway_id: null
+      agent_id: null
+      execution_agency_name: DefaultAgentArtsRuntimeAgency
+      invoke_config:
+        protocol: HTTP
+        port: 8080
+        file_transfer_config: null
+        url_match_type: PREFIX_MATCH
+      network_config:
+        network_mode: PUBLIC
+        vpc_config: null
+      identity_configuration:
+        # 公网 Web 形态：Gateway 校验 MSAL 获取的 Entra id_token
+        # （个人 Microsoft 账号 = consumers 租户；组织账号改用应用注册的
+        # Directory tenant ID，并同步修改前端 ENTRA.tenant）。
+        authorizer_type: CUSTOM_JWT
+        authorizer_configuration:
+          custom_jwt:
+            discovery_url: https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0/.well-known/openid-configuration
+            allowed_audience:
+              - your-entra-client-id
+            allowed_clients: []
+            allowed_scopes: []
+      observability:
+        tracing:
+          enabled: true
+        metrics:
+          enabled: true
+        logs:
+          enabled: true
+      environment_variables:
+        - key: MODEL_API_KEY
+          value: your-model-api-key
+        - key: MODEL_NAME
+          value: deepseek-v4-flash
+        - key: MODEL_URL
+          value: https://api.deepseek.com
+        - key: HUAWEICLOUD_SDK_REGION
+          value: cn-southwest-2
+        - key: GITHUB_PROVIDER_NAME
+          value: github-provider
+        - key: IAM_USERS_PROVIDER_NAME
+          value: iam-users-readonly
+        - key: IAM_USERS_AGENCY_SESSION_NAME
+          value: hw-agent-demo-iam-readonly
+        - key: M365_EMAIL_PROVIDER_NAME
+          value: m365-email-provider
+        - key: FEISHU_PROVIDER_NAME
+          value: feishu-provider
+        # 以下仅供 localhost 自建登录使用，云上 CUSTOM_JWT 形态不读取；
+        # 复制为 .agentarts_config.yaml 时替换为真实 Entra 应用值。
+        - key: OAUTH2_CLIENT_ID
+          value: your-entra-client-id
+        - key: OAUTH2_CLIENT_SECRET
+          value: your-entra-client-secret
+        - key: OAUTH2_CALLBACK_URL
+          value: http://localhost:8080/auth/callback
+      tags:
+        - key: app
+          value: hw-agent-demo

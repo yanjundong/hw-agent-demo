@@ -1,0 +1,68 @@
+# ==========================================
+# 1. 密钥与本地环境（严禁提交）
+# ==========================================
+.env
+.env.*
+!.env.example
+.agentarts_config.yaml
+.agentarts_config.local.yaml
+.agent_identity.json
+.agent_identity.local.json
+
+# ==========================================
+# 2. Python
+# ==========================================
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ==========================================
+# 3. 部署 / 传输产物
+# ==========================================
+*.tar.gz
+*.zip
+docker-compose.override.yml
+
+# ==========================================
+# 4. Cloudflare / Node（前端后续拆分后使用）
+# ==========================================
+node_modules/
+.wrangler/
+.dev.vars
+frontend/dist/
+frontend/.wrangler/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# 5. IDE / 编辑器
+# ==========================================
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# ==========================================
+# 6. 操作系统 / 日志
+# ==========================================
+.DS_Store
+Thumbs.db
+*.log
+logs/
+*.db
+*.sqlite3
