@@ -1,0 +1,68 @@
+name: Deploy Frontend (Cloudflare Pages)
+
+# 前端（static/ + functions/ + wrangler.toml）变更时自动发布到 Cloudflare Pages。
+# 需要在仓库 Secrets 中配置：
+#   CLOUDFLARE_API_TOKEN   （权限：Account → Cloudflare Pages → Edit）
+#   CLOUDFLARE_ACCOUNT_ID  （Cloudflare 控制台右下角 / 概览页可见）
+on:
+  push:
+    branches: [main]
+    paths:
+      - "static/**"
+      - "functions/**"
+      - "wrangler.toml"
+      - ".github/workflows/frontend-pages.yml"
+  pull_request:
+    paths:
+      - "static/**"
+      - "functions/**"
+      - "wrangler.toml"
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BRANCH="pr-${{ github.event.pull_request.number }}"
+          else
+            BRANCH="main"
+          fi
+          echo "deploying branch: $BRANCH"
+          # 不带目录参数：wrangler 会读取 wrangler.toml 的 pages_build_output_dir(=./static)
+          # 并自动带上 functions/ 作为 Pages Functions
+          npx --yes wrangler@4 pages deploy \
+            --project-name=hw-agent-demo \
+            --branch="$BRANCH"
+
+      - name: Smoke check production
+        if: github.event_name != 'pull_request'
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://hw-agent-demo.pages.dev/ || true)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::前端冒烟检查失败（页面未返回 200）"
+          exit 1

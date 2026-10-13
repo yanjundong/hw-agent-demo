@@ -1,0 +1,80 @@
+name: Deploy Backend (AgentArts Runtime)
+
+# 后端（app/ + main.py + 依赖 + Dockerfile）变更时自动重新部署运行时。
+#
+# 重要约束：agentarts deploy 会在本机执行 docker build 并推送 SWR 镜像，
+# AgentArts Runtime 是 ARM64（鲲鹏）架构，因此这个 job 必须在 ARM64 + Docker
+# 环境执行 —— 推荐把鲲鹏 ECS 注册为 GitHub Actions 自托管 runner：
+#   ./config.sh --url https://github.com/<owner>/<repo> --token <TOKEN> \
+#               --labels self-hosted,linux,arm64
+# 并确保 runner 用户具备 docker 权限（已加入 docker 组）。
+#
+# 需要在仓库 Secrets 中配置：
+#   AGENTARTS_CONFIG_YAML_B64  本地 .agentarts_config.yaml 的 base64（含真实密钥）
+#   HUAWEICLOUD_SDK_AK / HUAWEICLOUD_SDK_SK
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "main.py"
+      - "requirements.txt"
+      - "Dockerfile"
+      - ".github/workflows/backend-agentarts.yml"
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "仅用已有镜像创建运行时（--skip-build）"
+        type: boolean
+        default: false
+
+concurrency:
+  group: agentarts-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Materialize deployment config
+        env:
+          CONFIG_B64: ${{ secrets.AGENTARTS_CONFIG_YAML_B64 }}
+        run: |
+          if [ -z "$CONFIG_B64" ]; then
+            echo "::error::缺少 AGENTARTS_CONFIG_YAML_B64（本地执行 base64 -w0 .agentarts_config.yaml）"
+            exit 1
+          fi
+          printf '%s' "$CONFIG_B64" | base64 -d > .agentarts_config.yaml
+          chmod 600 .agentarts_config.yaml
+
+      - name: Check docker
+        run: docker version
+
+      - name: Install agentarts CLI
+        run: |
+          python3 -m venv .ci-venv
+          .ci-venv/bin/pip install -q -U pip agentarts-sdk
+
+      - name: Deploy to AgentArts
+        env:
+          HUAWEICLOUD_SDK_AK: ${{ secrets.HUAWEICLOUD_SDK_AK }}
+          HUAWEICLOUD_SDK_SK: ${{ secrets.HUAWEICLOUD_SDK_SK }}
+        run: |
+          EXTRA=""
+          if [ "${{ inputs.skip_build }}" = "true" ]; then EXTRA="--skip-build"; fi
+          .ci-venv/bin/agentarts deploy $EXTRA
+
+      - name: Best-effort ping
+        # CUSTOM_JWT 形态下 /ping 也可能要求鉴权，这里仅做连通性探测，失败不阻断
+        run: |
+          curl -sS --max-time 20 -o /dev/null -w 'ping HTTP %{http_code}\n' \
+            "https://defaultgw-gm4tomjrgu.cn-southwest-2.huaweicloud-agentarts.com/runtimes/hw-agent-demo/ping" || true
+
+      - name: Cleanup secrets on runner
+        if: always()
+        run: |
+          rm -f .agentarts_config.yaml
+          rm -rf .ci-venv

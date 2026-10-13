@@ -44,13 +44,14 @@ hw-agent-demo/
 │       ├── email_tools.py       # Microsoft 365 邮件
 │       ├── feishu_tools.py      # 飞书 M2M
 │       └── pending_auth.py      # 授权链接公共暂存（控制台 + 界面）
-├── static/index.html        # 前端页面（Landing / 登录 / 聊天）
+├── static/index.html        # 前端单页（聊天界面 + 未登录拦截层）
 ├── functions/invocations.js # Cloudflare Pages Function：同源代理到 Gateway
 ├── wrangler.toml            # Cloudflare Pages 项目配置
+├── .github/workflows/       # GitHub Actions：前端 Pages / 后端 AgentArts 部署
 ├── requirements.txt
 ├── Dockerfile               # AgentArts 平台标准镜像
-├── .agentarts_config.yaml   # agentarts CLI 部署配置
-└── .env                     # 本地配置（不入镜像）
+├── .agentarts_config.yaml   # agentarts CLI 部署配置（本地真实值，不入仓库）
+└── .env                     # 本地配置（不入仓库）
 ```
 
 ## 快速开始
@@ -147,7 +148,7 @@ https://hw-agent-demo.pages.dev
 agentarts deploy
 ```
 
-`CUSTOM_JWT` 的 `discovery_url` 必须和登录用户 token 的租户一致：个人 Microsoft 账号用 `consumers`（对应 `9188040d-6c67-4c5b-b112-36a304b66dad`），组织账号用应用注册所在 Directory (tenant) ID；同时把 [static/index.html](static/index.html) 里 `ENTRA.tenant` 改成相同值（当前为 `consumers`）。
+`CUSTOM_JWT` 的 `discovery_url` 必须和登录用户 token 的租户一致。本 Demo 固定只允许租户 `d72bac4d-feb6-432b-b2be-79502440c674` 下的账号登录，相关配置已同步到 [.agentarts_config.yaml](.agentarts_config.yaml)（`discovery_url`）与 [static/index.html](static/index.html)（`ENTRA.tenant`）；日后更换租户时两端需一起修改。
 
 ### 3. 部署前端到 Cloudflare Pages
 
@@ -212,6 +213,80 @@ agentarts deploy --swr-org xxx --swr-repo yyy
 
 部署配置见 `.agentarts_config.yaml`：`authorizer_type: CUSTOM_JWT`（公网 Web 形态，Gateway 校验 Entra id_token），环境变量为真实值（CLI 不做 `${VAR}` 占位符展开）；`.env` 不进入镜像，云上由平台注入环境变量，出站凭据由 Gateway 注入的 Workload Access Token 自动获取。
 
+## GitHub Actions 自动化部署
+
+仓库已内置两条工作流：push 到 `main` 即自动发布，也可在 Actions 页面手动触发。
+
+| 工作流 | 文件 | 触发路径 | 目标 |
+| --- | --- | --- | --- |
+| 前端 | [.github/workflows/frontend-pages.yml](.github/workflows/frontend-pages.yml) | `static/**`、`functions/**`、`wrangler.toml` | Cloudflare Pages（PR 部署 preview 分支） |
+| 后端 | [.github/workflows/backend-agentarts.yml](.github/workflows/backend-agentarts.yml) | `app/**`、`main.py`、`requirements.txt`、`Dockerfile` | AgentArts Runtime（重建镜像 → 推 SWR → 更新运行时） |
+
+### 1. 一次性准备
+
+1. 把代码推到 GitHub（`git init` 后添加 remote 并 push）。若本机 git 报
+   `detected dubious ownership`，先执行一次
+   `git config --global --add safe.directory <项目绝对路径>`。
+2. 确认 `.gitignore` 生效：`.env`、`.agentarts_config.yaml`、`.agent_identity.json`
+   不会进入提交，仓库里只保留 `.example` 模板。
+3. 配置仓库 Secrets（Settings → Secrets and variables → Actions）：
+
+| Secret | 用途 | 获取方式 |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Pages 部署 | Cloudflare 控制台 → My Profile → API Tokens → 创建（权限 Account · Cloudflare Pages · Edit） |
+| `CLOUDFLARE_ACCOUNT_ID` | 指定 Pages 账号 | Cloudflare 控制台账号概览页复制 |
+| `AGENTARTS_CONFIG_YAML_B64` | CI 中还原部署配置 | 本地执行 `base64 -w0 .agentarts_config.yaml`；PowerShell 用 `[Convert]::ToBase64String([IO.File]::ReadAllBytes(".agentarts_config.yaml"))` |
+| `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` | CLI 推 SWR、更新运行时 | 华为云 IAM → 访问密钥 |
+
+4. 把鲲鹏 ECS 注册为 **ARM64 自托管 runner**（后端 `agentarts deploy` 必须在
+   ARM64 + Docker 环境构建镜像）：
+
+```bash
+# 在 ECS 上执行；token 从 GitHub 仓库 Settings → Actions → Runners → New self-hosted runner 获取
+mkdir -p ~/actions-runner && cd ~/actions-runner
+curl -LO https://github.com/actions/runner/releases/latest/download/actions-runner-linux-arm64-<版本>.tar.gz
+tar xzf actions-runner-linux-arm64-<版本>.tar.gz
+./config.sh --url https://github.com/<owner>/<repo> --token <RUNNER_TOKEN> \
+            --labels self-hosted,linux,arm64
+sudo ./svc.sh install && sudo ./svc.sh start
+# 确保 runner 用户已加入 docker 组（docker ps 可执行）
+```
+
+### 2. 日常使用
+
+- **改前端**：push `main` → 自动发布到 `https://hw-agent-demo.pages.dev`，并做一次 200 冒烟检查；PR 自动部署 preview 分支（`pr-<编号>`）。
+- **改后端**：push `main` → ARM64 runner 上执行 `agentarts deploy`，结束后打印网关 ping 结果。
+- **手动触发**：Actions → 选择工作流 → Run workflow；后端可选 `skip_build`（只用已有镜像更新运行时配置）。
+- **回滚**：`git revert` 后重新 push 触发流水线；或本地执行 `agentarts deploy --tag <旧版本>` 回退镜像。
+
+### 3. 没有自托管 runner 的备选方案
+
+如果暂时不想维护 runner，可以改成 SSH 到 ECS 执行部署（ECS 上需已有仓库与 venv，
+并把 `.agentarts_config.yaml` 放在服务器私有目录、不要放进仓库）：
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ECS_SSH_HOST }}
+          username: ${{ secrets.ECS_SSH_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          script: |
+            cd ~/hw-agent-demo && git pull
+            cp ~/.secrets/agentarts_config.yaml .agentarts_config.yaml
+            ~/venv/bin/agentarts deploy
+```
+
+### 4. 注意事项
+
+- Fork 提交的 PR 读不到 Secrets，preview 部署只对同仓库分支生效；
+- 后端流水线涉及 authorizer / 环境变量变更时建议人工确认，或配合 GitHub Environments 审批；
+- MSAL 库仍走 CDN，如内网受限按上文说明改为本地静态文件后，前端流水线无需改动。
+
 ## 后续工作方向（Roadmap）
 
 > 记录日期：2026-09-02
@@ -269,9 +344,11 @@ hw-agent-demo/
 
 ### 方向二：GitHub 托管 + GitHub Actions 自动化部署
 
+> 已落地：工作流见 [.github/workflows/](.github/workflows/)，操作步骤见上文「GitHub Actions 自动化部署」；本节保留后续增强项。
+
 #### 前置
 
-- 代码推送到 GitHub（当前目录不是 git 仓库，需要 `git init` + 远程仓库）；
+- 代码推送到 GitHub 并配置远程仓库（本目录已完成 `git init`，补齐 remote 后 push 即可）；
 - 开启分支保护（main 要求 PR + 状态检查通过）；
 - 仓库 Secrets 清单：
 
@@ -284,7 +361,7 @@ hw-agent-demo/
 
 #### 前端自动化
 
-`.github/workflows/frontend-deploy.yml`：
+`.github/workflows/frontend-pages.yml`（已落地）：
 
 - 触发：`paths: ['frontend/**']`，分支 `main`；
 - 步骤：checkout → `npx wrangler pages deploy`（`CLOUDFLARE_API_TOKEN` 认证）；

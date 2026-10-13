@@ -103,7 +103,7 @@ export HUAWEICLOUD_SDK_SK="your-secret-key"
 编辑 `.agentarts_config.yaml`：
 
 1. `swr_config`：如不想用默认组织/仓库，改成你自己的（`organization` / `repository`）
-2. `identity_configuration`：已配置 `CUSTOM_JWT`，discovery_url 与登录 token 的租户一致（个人账号 = consumers `9188040d-...`，组织账号 = 应用注册的 Directory tenant ID），`allowed_clients / allowed_scopes` 留空；改动后必须重新 `agentarts deploy`
+2. `identity_configuration`：已配置 `CUSTOM_JWT`，discovery_url 固定为租户 `d72bac4d-feb6-432b-b2be-79502440c674`（只允许该租户账号，与前端 `ENTRA.tenant` 一致），`allowed_clients / allowed_scopes` 留空；改动后必须重新 `agentarts deploy`
 3. `environment_variables` 中 `OAUTH2_CLIENT_ID/SECRET` 仅供 **localhost 自建登录** 使用，云上 CUSTOM_JWT 形态不读取，无需修改
 
 > 环境变量是明文写入 yaml（CLI 不做 `${VAR}` 展开），Demo 阶段可接受；正式环境建议使用平台密钥管理。

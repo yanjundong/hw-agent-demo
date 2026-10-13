@@ -663,10 +663,9 @@
     // custom_jwt 的 discovery_url / allowed_audience / allowed_clients。
     const ENTRA = {
       clientId: '4f25cc58-e6c1-427a-9fea-e4213c025a03',
-      // 个人 Microsoft 账号（演示用 gmail 登录）必须用 consumers，
-      // 与网关 CUSTOM_JWT discovery_url 的租户一致；组织账号改成
-      // Directory (tenant) ID 时需同步修改 .agentarts_config.yaml。
-      tenant: 'consumers',
+      // 仅允许本租户（d72bac4d-feb6-432b-b2be-79502440c674）下的账号登录；
+      // 与网关 CUSTOM_JWT discovery_url、Entra 应用注册保持一致。
+      tenant: 'd72bac4d-feb6-432b-b2be-79502440c674',
       scopes: ['openid', 'profile', 'email'],
     };
     const AUTHORITY = 'https://login.microsoftonline.com/' + ENTRA.tenant + '/v2.0';
