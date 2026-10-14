@@ -42,9 +42,14 @@ def _instrument(tool: Any) -> Any:
                 preview(exc, 200),
             )
             raise
-        logger.info(
-            "tool.done name=%s duration_ms=%.1f result=%s",
+        failed = isinstance(result, dict) and (
+            result.get("error") or result.get("ok") is False or result.get("sent") is False
+        )
+        logger.log(
+            logging.WARNING if failed else logging.INFO,
+            "tool.done name=%s status=%s duration_ms=%.1f result=%s",
             name,
+            "failed" if failed else "ok",
             (time.perf_counter() - started) * 1000,
             preview(result, 400),
         )

@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -28,6 +29,8 @@ FEISHU_API_BASE_URL = os.getenv(
 # 固定查询当前应用自身信息："me" 表示 tenant_access_token 所属的应用，
 # 无需额外申请"获取应用信息"权限。
 FEISHU_APP_ID = "me"
+
+logger = logging.getLogger("tools.feishu")
 
 
 @tool
@@ -53,6 +56,11 @@ def feishu_get_app_info() -> dict[str, Any]:
 
     # 飞书统一响应结构：{code: 0, msg: "success", data: {...}}
     if data.get("code") != 0:
+        logger.warning(
+            "feishu.error code=%s msg=%s",
+            data.get("code"),
+            data.get("msg"),
+        )
         return {
             "ok": False,
             "error": f"飞书错误 {data.get('code')}: {data.get('msg')}",
@@ -62,6 +70,11 @@ def feishu_get_app_info() -> dict[str, Any]:
     body = data.get("data") or {}
     app = body.get("app") or {}
     version = body.get("app_version") or {}
+    logger.info(
+        "feishu.app_info app_id=%s app_name=%s",
+        app.get("app_id") or version.get("app_id"),
+        app.get("app_name") or version.get("app_name"),
+    )
     return {
         "ok": True,
         "provider_name": FEISHU_PROVIDER_NAME,
@@ -89,6 +102,12 @@ def _feishu_request(
     """Private boundary：仅在此处接收 SDK 注入的 M2M access token。"""
     if not access_token:
         raise RuntimeError("access_token was not injected by require_access_token")
+    # M2M 场景这里应是 tenant_access_token（t- 开头）；只记录前缀与长度，不落完整 token
+    logger.info(
+        "feishu.token prefix=%s len=%d",
+        access_token[:4],
+        len(access_token),
+    )
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Accept": "application/json",

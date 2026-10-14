@@ -124,7 +124,8 @@ def run_web_server():
     from app.webapp import handle_request
 
     # 华为云 SDK 标准启动方式：entrypoint 函数自带 .run()
-    handle_request.run(host="0.0.0.0", port=port)
+    # log_config=None：不让 uvicorn 覆盖日志配置，访问日志也走统一格式（便于 LTS 采集）
+    handle_request.run(host="0.0.0.0", port=port, log_config=None)
 
 
 def main():

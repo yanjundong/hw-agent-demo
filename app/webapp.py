@@ -67,7 +67,7 @@ async def lifespan(app: AgentArtsRuntimeApp):
             (time.perf_counter() - started) * 1000,
             len(getattr(_agent, "_tools", None) or []),
             os.getenv("AGENT_VERSION", "dev"),
-            os.getenv("HUAWEICLOUD_SDK_REGION", "-"),
+            os.getenv("HUAWEICLOUD_SDK_REGION", "cn-southwest-2"),
         )
     except Exception as exc:  # noqa: BLE001
         _agent_init_error = str(exc)
@@ -279,7 +279,11 @@ def handle_request(
     # SSE：前端（Cloudflare Pages / 本地 UI）请求流式响应，授权链接即时推送
     if wants_sse:
         wat = request.headers.get(ACCESS_TOKEN_HEADER, "").strip() or None
-        request_id = request.headers.get("X-Request-Id", "").strip() or None
+        request_id = (
+            (context.request_id if context is not None else None)
+            or request.headers.get("X-Request-Id", "").strip()
+            or None
+        )
         return _stream_agent_run(message, session_id, user_id, wat, request_id)
 
     started = time.perf_counter()
