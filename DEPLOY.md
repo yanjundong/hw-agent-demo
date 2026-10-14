@@ -56,6 +56,10 @@ AgentArts Runtime（ARM64 容器，镜像来自 SWR）
 
 AgentArts Runtime 为 **ARM64（鲲鹏）** 架构，且 `agentarts deploy` 的 `docker build` 不带 `--platform`，**必须在 ARM64 Linux 上构建镜像**。
 
+> 走 GitHub Actions 时无需自备构建机：`.github/workflows/backend-agentarts.yml`
+> 已使用 GitHub 官方 ARM64 runner（`ubuntu-24.04-arm`）。本节适用于手工部署、
+> 自托管 runner 或 SSH 部署的场景。
+
 准备一台鲲鹏 ECS（如 Ubuntu 22.04 ARM64）：
 
 ```bash

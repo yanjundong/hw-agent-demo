@@ -269,24 +269,25 @@ agentarts deploy --swr-org xxx --swr-repo yyy
 | `AGENTARTS_CONFIG_YAML_B64` | CI 中还原部署配置 | 本地执行 `base64 -w0 .agentarts_config.yaml`；PowerShell 用 `[Convert]::ToBase64String([IO.File]::ReadAllBytes(".agentarts_config.yaml"))` |
 | `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` | CLI 推 SWR、更新运行时 | 华为云 IAM → 访问密钥 |
 
-4. 把鲲鹏 ECS 注册为 **ARM64 自托管 runner**（后端 `agentarts deploy` 必须在
-   ARM64 + Docker 环境构建镜像）：
+4. 后端 workflow 使用 **GitHub 官方 ARM64 runner**（`ubuntu-24.04-arm`，自带
+   Docker），无需自己维护构建机：公开仓库免费，私有仓库按 Actions 分钟数计费。
 
-```bash
-# 在 ECS 上执行；token 从 GitHub 仓库 Settings → Actions → Runners → New self-hosted runner 获取
-mkdir -p ~/actions-runner && cd ~/actions-runner
-curl -LO https://github.com/actions/runner/releases/latest/download/actions-runner-linux-arm64-<版本>.tar.gz
-tar xzf actions-runner-linux-arm64-<版本>.tar.gz
-./config.sh --url https://github.com/<owner>/<repo> --token <RUNNER_TOKEN> \
-            --labels self-hosted,linux,arm64
-sudo ./svc.sh install && sudo ./svc.sh start
-# 确保 runner 用户已加入 docker 组（docker ps 可执行）
-```
+   > 如果需要更快的镜像构建缓存，可改用自托管 runner：把 workflow 的 `runs-on`
+   > 换回 `[self-hosted, linux, arm64]`，然后在鲲鹏 ECS 上注册（token 从仓库
+   > Settings → Actions → Runners → New self-hosted runner 获取）：
+   >
+   > ```bash
+   > mkdir -p ~/actions-runner && cd ~/actions-runner
+   > curl -LO https://github.com/actions/runner/releases/latest/download/actions-runner-linux-arm64-<版本>.tar.gz
+   > tar xzf actions-runner-linux-arm64-<版本>.tar.gz
+   > ./config.sh --url https://github.com/<owner>/<repo> --token <RUNNER_TOKEN> --labels self-hosted,linux,arm64
+   > sudo ./svc.sh install && sudo ./svc.sh start
+   > ```
 
 ### 2. 日常使用
 
 - **改前端**：push `main` → 自动发布到 `https://hw-agent-demo.pages.dev`，并做一次 200 冒烟检查；PR 自动部署 preview 分支（`pr-<编号>`）。
-- **改后端**：push `main` → ARM64 runner 上执行 `agentarts deploy`，结束后打印网关 ping 结果。
+- **改后端**：push `main` → GitHub 官方 ARM64 runner 上执行 `agentarts deploy`，结束后打印网关 ping 结果。
 - **手动触发**：Actions → 选择工作流 → Run workflow；后端可选 `skip_build`（只用已有镜像更新运行时配置）。
 - **回滚**：`git revert` 后重新 push 触发流水线；或本地执行 `agentarts deploy --tag <旧版本>` 回退镜像。
 
@@ -388,7 +389,7 @@ hw-agent-demo/
 | `CLOUDFLARE_API_TOKEN` | Pages 部署（权限 Pages:Edit） | 前端 workflow |
 | `CLOUDFLARE_ACCOUNT_ID` | 指定 Pages 账号 | 前端 workflow |
 | `HUAWEICLOUD_SDK_AK` / `HUAWEICLOUD_SDK_SK` | AgentArts CLI 推 SWR / 部署运行时 | 后端 workflow |
-| `ECS_SSH_HOST` / `ECS_SSH_USER` / `ECS_SSH_KEY` | ARM64 构建机（鲲鹏 ECS） | 后端 workflow |
+| `ECS_SSH_HOST` / `ECS_SSH_USER` / `ECS_SSH_KEY` | 仅 SSH 部署备选方案需要 | 后端备选 workflow |
 
 #### 前端自动化
 
@@ -401,13 +402,13 @@ hw-agent-demo/
 
 #### 后端自动化
 
-`agentarts deploy` 必须在 **ARM64 + Docker** 环境构建镜像，三条路线：
+`agentarts deploy` 必须在 **ARM64 + Docker** 环境构建镜像，三种方式：
 
-1. **推荐：把鲲鹏 ECS 注册为 GitHub Actions 自托管 runner**，CI 内直接执行
-   `agentarts deploy`，链路完整、日志可见；
-2. 或 workflow 通过 SSH 到 ECS 执行部署脚本（简单，但 CI 与构建机耦合弱、
-   回滚和日志不如 runner）；
-3. GitHub 官方 ARM64 runner（公仓免费、私仓计费）作为备选。
+1. **默认（已落地）：GitHub 官方 ARM64 runner** `ubuntu-24.04-arm`，CI 内直接执行
+   `agentarts deploy`，无需自维护机器（公开仓库免费、私有仓库按分钟计费）；
+2. 备选：把鲲鹏 ECS 注册为自托管 runner（`self-hosted,linux,arm64`），
+   构建层缓存更好、速度更快；
+3. 备选：workflow 通过 SSH 到 ECS 执行部署脚本（最简单，但日志与回滚较弱）。
 
 #### 发布策略
 
@@ -449,8 +450,8 @@ hw-agent-demo/
 ### 建议执行顺序
 
 1. **方向一（约 1–2 天）**：契约文档 + 目录拆分，纯重构不引入新依赖；
-2. **方向二（约 1–2 天）**：GitHub 入库、workflow 打通前端部署，后端先以
-   SSH/自托管 runner 跑通 `agentarts deploy`；
+2. **方向二（约 1–2 天）**：GitHub 入库、workflow 打通前端部署，后端用官方
+   ARM64 runner 跑通 `agentarts deploy`；
 3. **方向三**：按业务优先级逐项接入（建议先做 Memory 与 Guard，再做工程化与产品化）。
 
 ### 风险与注意点
