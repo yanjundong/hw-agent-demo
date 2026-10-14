@@ -892,7 +892,8 @@
       }
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
-        throw new Error(data.detail || ('HTTP ' + resp.status));
+        const detail = data.detail || data.message || data.error || '';
+        throw new Error(detail ? ('HTTP ' + resp.status + '：' + detail) : ('HTTP ' + resp.status));
       }
       if (!resp.body) throw new Error('服务无响应');
 

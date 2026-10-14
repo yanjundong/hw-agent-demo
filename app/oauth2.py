@@ -21,6 +21,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 import uuid
@@ -31,6 +32,8 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
+
+logger = logging.getLogger("oauth2")
 
 # ================================================================================
 # 配置（.env）
@@ -213,9 +216,15 @@ async def auth_login(request: Request) -> Response:
     if DEV_MODE:
         # 本地开发模式：未配置 OAuth App，直接签发 dev-user 会话
         token = _issue_session_token("dev-user", "dev-user")
+        logger.warning("inbound.login.dev_mode 未配置 OAUTH2_CLIENT_ID，签发 dev-user 会话")
         return RedirectResponse(url=f"/?token={token}&name=dev-user")
 
     state = _make_state()
+    logger.info(
+        "inbound.login.start callback=%s scopes=%s",
+        CALLBACK_URL,
+        OAUTH2_SCOPES,
+    )
     params = {
         "client_id": CLIENT_ID,
         "redirect_uri": CALLBACK_URL,
@@ -231,20 +240,28 @@ async def auth_callback(request: Request) -> Response:
     query = request.query_params
     error = query.get("error")
     if error:
+        logger.warning("inbound.login.failed reason=provider_error error=%s", error)
         return RedirectResponse(url=f"/?auth_error={quote(error)}")
 
     code = query.get("code")
     state = query.get("state")
     if not code or not state or not _verify_state(state):
+        logger.warning(
+            "inbound.login.failed reason=invalid_state has_code=%s has_state=%s",
+            bool(code),
+            bool(state),
+        )
         return RedirectResponse(url="/?auth_error=invalid_state")
 
     try:
         access_token = _exchange_code(code)
         user = _fetch_userinfo(access_token)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("inbound.login.failed reason=token_exchange error=%s", exc)
         return RedirectResponse(url=f"/?auth_error={quote(str(exc))}")
 
     session_token = _issue_session_token(user["sub"], user["name"])
+    logger.info("inbound.login.success sub=%s name=%s", user["sub"], user["name"])
     return RedirectResponse(
         url=f"/?token={session_token}&name={quote(user['name'])}"
     )

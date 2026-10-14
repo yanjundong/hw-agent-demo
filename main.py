@@ -8,6 +8,11 @@ import argparse
 import os
 import uuid
 
+# 尽早初始化日志（统一格式 + user/session 上下文），避免 SDK 先注册默认格式
+from app.logging_config import setup_logging
+
+setup_logging()
+
 
 def run_self_test():
     """本地自动化测试：验证模型连通与 OutBound 出站凭据工具（GitHub / IAM / 邮件 / 飞书）。"""
@@ -112,6 +117,8 @@ def run_self_test():
 def run_web_server():
     """启动 AgentArts Runtime Web 服务（华为云标准 AgentArtsRuntimeApp）。"""
     port = int(os.getenv("AGENT_RUN_PORT", "8080"))
+    # SDK / uvicorn 导入后可能再次注册 logging handler，启动前重新接管一次
+    setup_logging()
     print(f"启动 AgentArts Web 服务: http://0.0.0.0:{port}")
     print("接口: GET /ping | POST /invocations | WS /ws")
     from app.webapp import handle_request

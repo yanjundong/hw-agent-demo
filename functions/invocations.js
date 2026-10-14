@@ -22,6 +22,23 @@ function getUpstreamUrl(env) {
   return new URL(value);
 }
 
+// GET /invocations 健康检查：浏览器直接访问 https://<项目>.pages.dev/invocations
+// 可确认 Pages Function 是否生效、上游网关地址是否配置（不涉及任何密钥）。
+export async function onRequestGet({ env }) {
+  let upstream = null;
+  let error = null;
+  try {
+    const url = getUpstreamUrl(env);
+    upstream = `${url.origin}${url.pathname}`;
+  } catch (e) {
+    error = e.message;
+  }
+  return Response.json(
+    { ok: !error, proxy: "cloudflare-pages-function", upstream, error },
+    { status: error ? 500 : 200, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function onRequestPost({ request, env }) {
   let upstreamUrl;
   try {

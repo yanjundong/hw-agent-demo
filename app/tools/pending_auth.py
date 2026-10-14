@@ -11,12 +11,15 @@
 from __future__ import annotations
 
 import contextvars
+import logging
 import queue
 import threading
 import time
 from typing import Any
 
 from agentarts.sdk.runtime.context import AgentArtsRuntimeContext
+
+logger = logging.getLogger("pending_auth")
 
 _PENDING: dict[str, tuple[str, str, float]] = {}  # user_id -> (provider, auth_url, created_at)
 _PENDING_LOCK = threading.Lock()
@@ -44,9 +47,12 @@ def capture_pending_auth_url(auth_url: str, provider: str = "OAuth2") -> None:
     user_id = AgentArtsRuntimeContext.get_user_id() or "default-user"
     with _PENDING_LOCK:
         _PENDING[user_id] = (provider, auth_url, time.time())
-    print(f"\n[OAuth2] {provider} 需要用户授权，请在浏览器打开以下链接完成授权：")
-    print(auth_url)
-    print("等待授权完成……\n")
+    logger.warning(
+        "oauth.auth_required provider=%s user_id=%s url=%s",
+        provider,
+        user_id,
+        auth_url,
+    )
     event_queue = _AUTH_EVENT_QUEUE.get()
     if event_queue is not None:
         event_queue.put({"provider": provider, "auth_url": auth_url})
@@ -60,5 +66,11 @@ def pop_pending_auth_url(user_id: str) -> dict[str, Any] | None:
         return None
     provider, auth_url, created_at = entry
     if time.time() - created_at > _TTL_SECONDS:
+        logger.warning("oauth.auth_url.expired provider=%s", provider)
         return None
+    logger.info(
+        "oauth.auth_url.consumed provider=%s age_s=%.1f",
+        provider,
+        time.time() - created_at,
+    )
     return {"provider": provider, "auth_url": auth_url}

@@ -189,6 +189,37 @@ python main.py --test
 
 按轮次验证模型连通与出站工具（GitHub / IAM / 邮件 / 飞书），需要真实授权时控制台会打印授权链接。
 
+## 日志与 LTS 检索
+
+日志统一输出到 stdout（容器日志由 AgentArts 平台采集到 LTS），单行格式为：
+
+```
+2026-10-13 10:31:02 INFO [webapp] user=00000000-0000-0000-f68d-acf6d4e4ff12 session=6f1c... req=8f2a... invocation.received stream=True message_len=12 message=列出我的 GitHub 仓库
+```
+
+每条日志自动带 `user=` / `session=` / `req=`，可在 LTS 里用一次调用的 session 串起完整链路。关键事件（可直接作为检索关键词或告警条件）：
+
+| 事件 | 含义 | 关键字段 |
+| --- | --- | --- |
+| `agent.init.done` / `agent.init.failed` | 运行时启动、工具装载 | tools、version、region |
+| `tools.registered` / `tools.load.failed` | 工具注册情况 | group、names |
+| `invocation.received` | 收到请求 | stream、message_len、message |
+| `invocation.rejected` | 入站认证失败（401） | accept |
+| `agent.run.start` / `agent.run.done` | 一次对话整体耗时 | duration_ms、messages、iterations、tools |
+| `llm.request` / `llm.response` | 模型调用与工具决策 | tool_calls、input_tokens、output_tokens |
+| `tool.start` / `tool.done` / `tool.error` | 工具调用（入参与结果限长） | name、duration_ms、result |
+| `oauth.auth_required` | 出站需要用户授权 | provider、url |
+| `stream.start` / `stream.done` / `stream.error` | SSE 流（Web 前端） | duration_ms、response_len |
+| `inbound.login.start/success/failed` | 本地模式 Entra 登录 | sub、reason |
+
+配置项：
+
+- `LOG_LEVEL`：默认 `INFO`，排障时可临时改为 `DEBUG`；
+- `AGENT_VERSION`：建议填 commit / tag，便于在 LTS 中确认问题版本；
+- 云上通过 `.agentarts_config.yaml` 的 `environment_variables` 注入，本地写在 `.env`。
+
+隐私与体积控制：工具入参、结果与用户问题都会按 200/400 字符截断（超出显示 `truncated total=N`）；AK/SK、client secret、access token 等凭证不会写入日志。
+
 ## 部署到华为云 AgentArts
 
 ### 前置条件

@@ -1,12 +1,18 @@
 """TravelAgent：AgentArts LangGraph 智能体核心（模型连接 + OutBound 工具循环）。"""
 
+import logging
+import time
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from app.config import config
+from app.logging_config import preview
 from app.tools import build_tools
+
+logger = logging.getLogger("agent")
 
 
 class AgentState(MessagesState):
@@ -80,7 +86,26 @@ class TravelAgent:
     def _build_graph(self):
         def model_node(state: AgentState) -> AgentState:
             llm_with_tools = self._llm.bind_tools(self._tools)
+            started = time.perf_counter()
+            logger.info(
+                "llm.request model=%s messages=%d tools=%d",
+                config.model.name,
+                len(state["messages"]),
+                len(self._tools),
+            )
             response = llm_with_tools.invoke(state["messages"])
+            tool_calls = [
+                str(call.get("name"))
+                for call in (getattr(response, "tool_calls", None) or [])
+            ]
+            usage = getattr(response, "usage_metadata", None) or {}
+            logger.info(
+                "llm.response duration_ms=%.1f tool_calls=%s input_tokens=%s output_tokens=%s",
+                (time.perf_counter() - started) * 1000,
+                ",".join(tool_calls) or "-",
+                usage.get("input_tokens", "-"),
+                usage.get("output_tokens", "-"),
+            )
             return {"messages": [response], "iteration": state.get("iteration", 0) + 1}
 
         workflow = StateGraph(AgentState)
@@ -106,8 +131,32 @@ class TravelAgent:
             SystemMessage(content=self.system_prompt),
             HumanMessage(content=user_input),
         ]
+        started = time.perf_counter()
+        logger.info(
+            "agent.run.start session=%s input_len=%d input=%s",
+            session_id or "-",
+            len(user_input),
+            preview(user_input, 200),
+        )
         result = self.graph.invoke(
             {"messages": messages},
             recursion_limit=config.max_iterations,
         )
-        return result["messages"][-1].content
+        result_messages = result.get("messages", [])
+        called_tools = sorted(
+            {
+                str(call.get("name"))
+                for message in result_messages
+                for call in (getattr(message, "tool_calls", None) or [])
+            }
+        )
+        answer = result_messages[-1].content
+        logger.info(
+            "agent.run.done duration_ms=%.1f messages=%d iterations=%s tools=%s answer_len=%d",
+            (time.perf_counter() - started) * 1000,
+            len(result_messages),
+            result.get("iteration", "-"),
+            ",".join(called_tools) or "-",
+            len(str(answer)),
+        )
+        return answer

@@ -76,6 +76,11 @@ agents:
           value: m365-email-provider
         - key: FEISHU_PROVIDER_NAME
           value: feishu-provider
+        # 日志：容器 stdout 由平台采集，可在 LTS 中按 user/session 检索
+        - key: LOG_LEVEL
+          value: INFO
+        - key: AGENT_VERSION
+          value: demo-local
         # 以下仅供 localhost 自建登录使用，云上 CUSTOM_JWT 形态不读取；
         # 复制为 .agentarts_config.yaml 时替换为真实 Entra 应用值。
         - key: OAUTH2_CLIENT_ID

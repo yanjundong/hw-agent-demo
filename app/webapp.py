@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import queue
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -38,6 +40,7 @@ from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from app.agent import TravelAgent
+from app.logging_config import preview, setup_logging
 from app.oauth2 import extract_bearer_user, routes as oauth2_routes
 from app.tools.pending_auth import (
     bind_auth_event_queue,
@@ -45,11 +48,8 @@ from app.tools.pending_auth import (
     reset_auth_event_queue,
 )
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 logger = logging.getLogger("webapp")
-# SDK 的 token poller 在授权等待期间每轮都打一条 INFO（轮询授权 URL），
-# 等待过程中会持续刷屏；降为 WARNING，仅保留授权失败等关键错误。
-logging.getLogger("agentarts.token_poller").setLevel(logging.WARNING)
 
 _agent: TravelAgent | None = None
 _agent_init_error: str | None = None
@@ -59,13 +59,21 @@ _agent_init_error: str | None = None
 async def lifespan(app: AgentArtsRuntimeApp):
     """启动时初始化 TravelAgent 单例，失败不阻塞服务启动。"""
     global _agent, _agent_init_error
+    started = time.perf_counter()
     try:
         _agent = await asyncio.to_thread(TravelAgent)
-        logger.info("TravelAgent 初始化成功")
+        logger.info(
+            "agent.init.done duration_ms=%.1f tools=%d version=%s region=%s",
+            (time.perf_counter() - started) * 1000,
+            len(getattr(_agent, "_tools", None) or []),
+            os.getenv("AGENT_VERSION", "dev"),
+            os.getenv("HUAWEICLOUD_SDK_REGION", "-"),
+        )
     except Exception as exc:  # noqa: BLE001
         _agent_init_error = str(exc)
-        logger.exception("TravelAgent 初始化失败，/invocations 将返回 503")
+        logger.exception("agent.init.failed /invocations 将返回 503")
     yield
+    logger.info("agent.shutdown")
     _agent = None
 
 
@@ -114,6 +122,7 @@ async def _stream_agent_run(
     session_id: str,
     user_id: str,
     workload_access_token: str | None,
+    request_id: str | None = None,
 ):
     """SSE 流式执行 Agent。
 
@@ -131,14 +140,18 @@ async def _stream_agent_run(
     # 供 agent 线程中的 Identity SDK / on_auth_url 读取。
     AgentArtsRuntimeContext.set_user_id(user_id)
     AgentArtsRuntimeContext.set_session_id(session_id)
+    if request_id:
+        AgentArtsRuntimeContext.set_request_id(request_id)
     if workload_access_token:
         AgentArtsRuntimeContext.set_workload_access_token(workload_access_token)
 
     auth_events: queue.Queue = queue.Queue()
     bind_token = bind_auth_event_queue(auth_events)
+    started = time.perf_counter()
     run_task = asyncio.create_task(
         asyncio.to_thread(_agent.run, message, session_id, user_id)
     )
+    logger.info("stream.start message_len=%d", len(message))
     try:
         yield {"type": "start", "session_id": session_id}
         while not run_task.done():
@@ -148,6 +161,11 @@ async def _stream_agent_run(
                     event = auth_events.get_nowait()
                 except queue.Empty:
                     break
+                logger.info(
+                    "auth.required provider=%s url=%s",
+                    event["provider"],
+                    event["auth_url"],
+                )
                 yield {
                     "type": "auth_required",
                     "provider": event["provider"],
@@ -160,6 +178,11 @@ async def _stream_agent_run(
                 event = auth_events.get_nowait()
             except queue.Empty:
                 break
+            logger.info(
+                "auth.required provider=%s url=%s",
+                event["provider"],
+                event["auth_url"],
+            )
             yield {
                 "type": "auth_required",
                 "provider": event["provider"],
@@ -167,6 +190,11 @@ async def _stream_agent_run(
             }
 
         response = run_task.result()
+        logger.info(
+            "stream.done status=success duration_ms=%.1f response_len=%d",
+            (time.perf_counter() - started) * 1000,
+            len(str(response)),
+        )
         yield {
             "type": "result",
             "status": "success",
@@ -174,7 +202,11 @@ async def _stream_agent_run(
             "session_id": session_id,
         }
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Agent 流式执行失败 session_id=%s", session_id)
+        logger.exception(
+            "stream.error duration_ms=%.1f error=%s",
+            (time.perf_counter() - started) * 1000,
+            preview(exc, 200),
+        )
         yield {
             "type": "error",
             "message": f"执行出错: {exc}",
@@ -225,29 +257,51 @@ def handle_request(
     try:
         user_id, user_name = _require_inbound_user(request)
     except ValueError:
+        logger.warning(
+            "invocation.rejected reason=unauthorized accept=%s",
+            request.headers.get("accept", ""),
+        )
         return JSONResponse(
             status_code=401,
             content={"detail": "未登录：请先完成 OAuth2 登录（/auth/login）"},
         )
 
     session_id = _resolve_session_id(request, payload)
-    logger.info("Invocation user=%s name=%s session=%s", user_id, user_name, session_id)
+    wants_sse = "text/event-stream" in request.headers.get("accept", "").lower()
+    logger.info(
+        "invocation.received stream=%s user_name=%s message_len=%d message=%s",
+        wants_sse,
+        user_name,
+        len(message),
+        preview(message, 200),
+    )
 
     # SSE：前端（Cloudflare Pages / 本地 UI）请求流式响应，授权链接即时推送
-    if "text/event-stream" in request.headers.get("accept", "").lower():
+    if wants_sse:
         wat = request.headers.get(ACCESS_TOKEN_HEADER, "").strip() or None
-        return _stream_agent_run(message, session_id, user_id, wat)
+        request_id = request.headers.get("X-Request-Id", "").strip() or None
+        return _stream_agent_run(message, session_id, user_id, wat, request_id)
 
+    started = time.perf_counter()
     try:
         response = _agent.run(message, session_id, user_id)
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Agent 执行失败 session_id=%s", session_id)
+        logger.exception(
+            "invocation.error duration_ms=%.1f error=%s",
+            (time.perf_counter() - started) * 1000,
+            preview(exc, 200),
+        )
         return {
             "response": f"执行出错: {exc}",
             "status": "error",
             "session_id": session_id,
         }
 
+    logger.info(
+        "invocation.done status=success duration_ms=%.1f response_len=%d",
+        (time.perf_counter() - started) * 1000,
+        len(str(response)),
+    )
     result: dict[str, Any] = {
         "response": response,
         "status": "success",
