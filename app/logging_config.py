@@ -33,6 +33,20 @@ class RuntimeContextFilter(logging.Filter):
         return True
 
 
+class PrintHandler(logging.Handler):
+    """用 print(..., flush=True) 输出日志。
+
+    平台（容器 stdout 采集 / LTS）对 print 输出的兼容性最好，
+    这里把根 logger 的输出通道统一换成 print，同时保留级别与上下文格式。
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            print(self.format(record), flush=True)
+        except Exception:  # noqa: BLE001
+            self.handleError(record)
+
+
 def setup_logging() -> None:
     """初始化根日志器；重复调用安全，且会强制接管根 logger 上的既有 handler。
 
@@ -50,7 +64,7 @@ def setup_logging() -> None:
         except (AttributeError, ValueError):
             pass
 
-    handler = logging.StreamHandler(stream)
+    handler = PrintHandler()
     handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT))
     handler.addFilter(RuntimeContextFilter())
 
